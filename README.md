@@ -1,2 +1,1 @@
-# integration
-api game integration
+# Game integration
