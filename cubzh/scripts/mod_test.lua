@@ -12,9 +12,9 @@ Config = {
     }
 }
 
-local CRATE_START_POSITION = Number3(382, 290, 153)
 local YOUR_API_TOKEN = "H4gjL-e9kvLF??2pz6oh=kJL497cBnsyCrQFdVkFadUkLnIaEamroYHb91GywMXrbGeDdmTiHxi8EqmJduCKPrDnfqWsjGuF0JJCUTrasGcBfGx=tlJCjq5q8jhVHWL?krIE74GT9AJ7qqX8nZQgsDa!Unk8GWaqWcVYT-19C!tCo11DcLvrnJPEOPlSbH7dDcXmAMfMEf1ZwZ1v1C9?2/BjPDeiAVTRlLFilwRFmKz7k4H-kCQnDH-RrBk!ZHl7"
 local API_URL = "https://0074-195-154-25-43.ngrok-free.app"
+local TRIGGER_AREA_SIZE = Number3(60, 30, 60)
 
 -- Client.OnStart is the first function to be called when the world is launched, on each user's device.
 Client.OnStart = function()
@@ -27,18 +27,15 @@ Client.OnStart = function()
     -- The "ambience" module also accepts
     -- custom settings (light colors, angles, etc.)
     local ambience = require("ambience") 
-    ambience:set(ambience.noon)
+    ambience:set(ambience.dusk)
 
-    -- The sfx module can be used to play spatialized sounds in one line calls.
-    -- A list of available sounds can be found here: 
-    -- https://docs.cu.bzh/guides/quick/adding-sounds#list-of-available-sounds
     sfx = require("sfx")
     -- There's only one AudioListener, but it can be placed wherever you want:
     Player.Head:AddChild(AudioListener)
 
     -- Requiring "multi" module is all you need to see other players in your game!
     -- (remove this line if you want to be solo)
-    require("multi")
+    multi = require("multi")
 
     -- This function drops the local player above the center of the map:
     dropPlayer = function()
@@ -55,23 +52,25 @@ Client.OnStart = function()
     dialog:setMaxWidth(400)
 
     avatar = require("avatar")
-    -- Create an avatarId to avatar mapping
-    avatarIdToAvatar = {
-    }
 
+    ease = require("ease")
     updateLocationTimer = nil
     character = nil
+    engineId = nil
+    
+    -- SYNCED ACTIONS
+	multi:onAction("swingRight", function(sender)
+		sender:SwingRight()
+	end)
+    npcDataClient = {}
+
+    timer = Timer(1, false, function()
+        _helpers.createNPCsAndLocations()
+        local e = Event()
+        e.action = "registerEngine"
+        e:SendTo(Server)
+    end)
 end
-
-LocalEvent:Listen(LocalEvent.Name.OnPlayerJoin, function(p)
-    print("Player joined")
-end)
-
-LocalEvent:Listen(LocalEvent.Name.Tick, function(dt)
-	if _config == nil then
-		return
-	end
-end)
 
 -- jump function, triggered with Action1
 -- (space bar on PC, button 1 on mobile)
@@ -80,80 +79,11 @@ Client.Action1 = function()
         Player.Velocity.Y = 100
         sfx("hurtscream_1", {Position = Player.Position, Volume = 0.4})
     end
-
-    -- Example location registration
-    local loc1 = createLocation(
-        "Medieval Inn",
-        Number3(130, 23, 75),
-        "An inn lost in the middle of the forest, where travelers can rest and eat."
-    )
-    local loc2 = createLocation(
-        "Abandoned temple",
-        Number3(303, 20, 263),
-        "Lost deep inside the woods, this temple features a mysterious altar statue. Fresh fruits and offrands are scattered on the ground."
-    )
-    local loc3 = createLocation(
-        "Lone grave in the woods",
-        Number3(142, 20, 258),
-        "Inside a small clearing in the forest lies a stone cross, marking the grave of a lost soul."
-    )
-    local loc4 = createLocation(
-        "Rope bridge",
-        Number3(26, 20, 301),
-        "Near the edge of a cliff, a rope bridge connects the forest to the island. The bridge is old and fragile, but still usable."
-    )
-    local loc5 = createLocation(
-        "Forest entrance",
-        Number3(156, 20, 168),
-        "The entrance to the forest is marked by a large stone arch. The path is wide and well maintained."
-    )
-
-    local NPC1 = createNPC("aduermael", "Tall, with green eyes", "Friendly and helpful", "Medieval Inn", Number3(130, 23, 75))
-    local NPC2 = createNPC("soliton", "Short, with a big nose", "Grumpy and suspicious", "Abandoned temple", Number3(303, 20, 263))
-    local NPC3 = createNPC("caillef", "Tall, with a big beard", "Wise and mysterious", "Lone grave in the woods", Number3(142, 20, 258))
-
     local e = Event()
-    e.action = "testRegisterEngine"
+    e.action = "stepMainCharacter"
+    e.actionType = "JUMP"
     e:SendTo(Server)
 end
-
-
-function createNPC(avatarId, physicalDescription, psychologicalProfile, currentLocationName, currentPosition)
-    -- Create the NPC's Object and Avatar
-    local NPC = {}
-    NPC.object = Object()
-    World:AddChild(NPC.object)
-    NPC.object.Position = currentPosition or Number3(0, 0, 0)
-    print("Placing NPC at position: " .. currentPosition._x .. ", " .. currentPosition._y .. ", " .. currentPosition._z)
-    NPC.object.Scale = 0.5
-    NPC.object.Physics = PhysicsMode.Dynamic
-    
-    avatar = require("avatar")
-    NPC.avatar = avatar:get(avatarId)
-    print("Getting avatar for NPC: " .. avatarId)
-    NPC.avatar:SetParent(NPC.object)
-    avatarIdToAvatar[avatarId] = NPC.avatar
-
-    -- Register it
-    local e = Event()
-    e.action = "registerNPC"
-    e.avatarId = avatarId
-    e.physicalDescription = physicalDescription
-    e.psychologicalProfile = psychologicalProfile
-    e.currentLocationName = currentLocationName
-    e:SendTo(Server)
-    return NPC
-end
-
-function createLocation(name, position, description)
-    local e = Event()
-    e.action = "registerLocation"
-    e.name = name
-    e.position = position
-    e.description = description
-    e:SendTo(Server)
-end
-
 
 -- Function to calculate distance between two positions
 local function calculateDistance(pos1, pos2)
@@ -203,9 +133,9 @@ Client.OnChat = function(payload)
 
     local e = Event()
     e.action = "stepMainCharacter"
+    e.actionType = "SAY"
     e.content = msg
     e:SendTo(Server)
-
 end
 
 -- Pointer.Click is called following click/touch down & up events, 
@@ -228,9 +158,9 @@ end
 
 
 Client.DidReceiveEvent = function(e)
-    if e.action == "displayDialog" then
-        dialog:create(e.content, avatarIdToAvatar[e.avatarId])
-    elseif e.action == "characterResponse" then
+    if e.action == "NPCActionResponse" then
+        _helpers.parseAction(e)
+    elseif e.action == "mainCharacterCreated" then
         -- Setup a new timer to delay the next update call
         characterId = e.character._id
         updateLocationTimer = Timer(0.5, true, function()
@@ -241,6 +171,15 @@ Client.DidReceiveEvent = function(e)
             e:SendTo(Server)
         end)
         -- print("Character ID: " .. character._id)
+    elseif e.action == "NPCRegistered" then
+        -- Update NPC in the client side table to add the _id
+        for _, npc in pairs(npcDataClient) do
+            print("Checking NPC " .. npc.name)
+            if npc.name == e.npcName then
+                print("Assigning ID " .. e.npcId .. " to NPC " .. npc.name)
+                npc._id = e.npcId
+            end
+        end
     end
 end
 
@@ -264,11 +203,11 @@ Server.DidReceiveEvent = function(e)
         registerNPC(e.avatarId, e.physicalDescription, e.psychologicalProfile, e.currentLocationName)
     elseif e.action == "registerLocation" then
         registerLocation(e.name, e.position, e.description)
-    elseif e.action == "testRegisterEngine" then
+    elseif e.action == "registerEngine" then
         print("Registering engine...")
         registerEngine(e.Sender)
     elseif e.action == "stepMainCharacter" then
-        stepMainCharacter(character, engineId, npcData["aduermael"]._id, npcData["aduermael"].name, e.content)
+        stepMainCharacter(character, engineId, e.actionType, npcData["aduermael"]._id, npcData["aduermael"].name, e.content)
     elseif e.action == "updateCharacterLocation" then
         closest = findClosestLocation(e.position, locationData)
         -- if closest._id is different from the current location, update the character's location
@@ -284,6 +223,160 @@ Server.Tick = function(dt)
 end
 
 Server.OnPlayerJoin = function(player)
+end
+
+------------------------------------------------------------------------------------------------
+-- Helpers --------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+_helpers = {}
+
+
+_helpers.lookAt = function(obj, target)
+	if not target then
+		ease:linear(obj, 0.1).Forward = obj.initialForward
+		obj.Tick = nil
+		return
+	end
+	obj.Tick = function(self, _)
+		_helpers.lookAtHorizontal(self, target)
+	end
+end
+
+_helpers.lookAtHorizontal = function(o1, o2)
+	local n3_1 = Number3.Zero
+	local n3_2 = Number3.Zero
+	n3_1:Set(o1.Position.X, 0, o1.Position.Z)
+	n3_2:Set(o2.Position.X, 0, o2.Position.Z)
+	ease:linear(o1, 0.1).Forward = n3_2 - n3_1
+end
+
+_helpers.createNPC = function(avatarId, physicalDescription, psychologicalProfile, currentLocationName, currentPosition)
+    -- Create the NPC's Object and Avatar
+    local NPC = {}
+    NPC.object = Object()
+    World:AddChild(NPC.object)
+    NPC.object.Position = currentPosition or Number3(0, 0, 0)
+    NPC.object.Scale = 0.5
+    NPC.object.Physics = PhysicsMode.Trigger
+    NPC.object.CollisionBox = Box({
+		-TRIGGER_AREA_SIZE.Width * 0.5,
+		math.min(-TRIGGER_AREA_SIZE.Height, NPC.object.CollisionBox.Min.Y),
+		-TRIGGER_AREA_SIZE.Depth * 0.5,
+	}, {
+		TRIGGER_AREA_SIZE.Width * 0.5,
+		math.max(TRIGGER_AREA_SIZE.Height, NPC.object.CollisionBox.Max.Y),
+		TRIGGER_AREA_SIZE.Depth * 0.5,
+	})
+    NPC.object.OnCollisionBegin = function(self, other)
+        if other ~= Player then
+            return
+        end
+        _helpers.lookAt(self.avatarContainer, other)
+    end
+    NPC.object.OnCollisionEnd = function(self, other)
+        if other ~= Player then
+            return
+        end
+        _helpers.lookAt(self.avatarContainer, nil)
+    end
+
+    local container = Object()
+	container.Rotation = NPC.object.Rotation
+	container.initialRotation = NPC.object.Rotation:Copy()
+	container.initialForward = NPC.object.Forward:Copy()
+	container:SetParent(NPC.object)
+    container.Physics = PhysicsMode.Dynamic
+	NPC.object.avatarContainer = container
+    
+    local avatar = require("avatar")
+    NPC.avatar = avatar:get(avatarId)
+    NPC.avatar:SetParent(NPC.object.avatarContainer)
+
+    -- Register it
+    local e = Event()
+    e.action = "registerNPC"
+    e.avatarId = avatarId
+    e.physicalDescription = physicalDescription
+    e.psychologicalProfile = psychologicalProfile
+    e.currentLocationName = currentLocationName
+    e:SendTo(Server)
+    return NPC
+end
+
+_helpers.createLocation = function(name, position, description)
+    local e = Event()
+    e.action = "registerLocation"
+    e.name = name
+    e.position = position
+    e.description = description
+    e:SendTo(Server)
+end
+
+_helpers.createNPCsAndLocations = function()
+    -- Example location registration
+    local loc1 = _helpers.createLocation(
+        "Medieval Inn",
+        Number3(130, 23, 75),
+        "An inn lost in the middle of the forest, where travelers can rest and eat."
+    )
+    local loc2 = _helpers.createLocation(
+        "Abandoned temple",
+        Number3(303, 20, 263),
+        "Lost deep inside the woods, this temple features a mysterious altar statue. Fresh fruits and offrands are scattered on the ground."
+    )
+    local loc3 = _helpers.createLocation(
+        "Lone grave in the woods",
+        Number3(142, 20, 258),
+        "Inside a small clearing in the forest lies a stone cross, marking the grave of a lost soul."
+    )
+    local loc4 = _helpers.createLocation(
+        "Rope bridge",
+        Number3(26, 20, 301),
+        "Near the edge of a cliff, a rope bridge connects the forest to the island. The bridge is old and fragile, but still usable."
+    )
+    local loc5 = _helpers.createLocation(
+        "Forest entrance",
+        Number3(156, 20, 168),
+        "The entrance to the forest is marked by a large stone arch. The path is wide and well maintained."
+    )
+
+    local NPC1 = _helpers.createNPC("aduermael", "Tall, with green eyes", "Friendly and helpful", "Medieval Inn", Number3(130, 23, 75))
+    table.insert(npcDataClient, {name = "aduermael", avatar = NPC1.avatar, object = NPC1.object})
+    NPC1.avatar.Animations.SwingRight:Play()
+    local NPC2 = _helpers.createNPC("soliton", "Short, with a big nose", "Grumpy and suspicious", "Abandoned temple", Number3(303, 20, 263))
+    table.insert(npcDataClient, {name = "soliton", avatar = NPC2.avatar, object = NPC2.object})
+    local NPC3 = _helpers.createNPC("caillef", "Tall, with a big beard", "Wise and mysterious", "Lone grave in the woods", Number3(142, 20, 258))
+    table.insert(npcDataClient, {name = "caillef", avatar = NPC3.avatar, object = NPC3.object})
+end
+
+_helpers.findNPCById = function(id)
+    for _, npc in pairs(npcDataClient) do
+        if npc._id == id then
+            return npc
+        end
+    end
+end
+
+_helpers.parseAction = function(action)
+    local npc = _helpers.findNPCById(action.protagonistId)
+    print("Parsing action for NPC with name: " .. npc.name)
+    if action.actionType == "GREET" then
+        -- TODO: face action.target and wave hand
+        dialog:create("<Greets you warmly!>", npc.avatar)
+        npc.avatar.Animations.SwingRight:Play()
+    elseif action.actionType == "SAY" then
+        dialog:create(action.content, npc.avatar)
+    elseif action.actionType == "JUMP" then
+        dialog:create("<Jumps in the air!>", npc.avatar)
+        npc.object.avatarContainer.Velocity.Y = 50
+        timer = Timer(1, false, function()
+            npc.object.avatarContainer.Velocity.Y = 50
+        end)
+    elseif action.actionType == "MOVE" then
+        -- TODO
+    elseif action.actionType == "FOLLOW" then
+        -- TODO
+    end
 end
 
 ------------------------------------------------------------------------------------------------
@@ -304,10 +397,24 @@ function registerNPC(avatarId, physicalDescription, psychologicalProfile, curren
                 description = "Say smthg out loud",
                 parameter_types = {"character", "content"}
             },
+            -- {
+            --     name = "move",
+            --     description = "Move to a new location",
+            --     parameter_types = {"location"}
+            -- },
             {
-                name = "move",
-                description = "Move to a new location",
-                parameter_types = {"location"}
+                name = "greet",
+                description = "Greet a character by waving your hand at them",
+                parameter_types = {"character"}
+            },
+            -- {
+            --     name = "follow",
+            --     description = "Follow a character around for a while",
+            --     parameter_types = {"character"}
+            -- },
+            {
+                name = "jump",
+                description = "Jump in the air",
             }
         }
     }
@@ -368,6 +475,7 @@ function registerEngine(sender)
         
         -- Save the engine_id for future use
         engineId = responseData.engine.id
+        print("Engine ID: " .. engineId)
         
         -- Saving all the _ids inside locationData table:
         for _, loc in pairs(responseData.locations) do
@@ -377,6 +485,12 @@ function registerEngine(sender)
         -- same for characters:
         for _, npc in pairs(responseData.NPCs) do
             npcData[npc.name]._id = npc._id
+            local e = Event()
+            e.action = "NPCRegistered"
+            e.npcName = npc.name
+            e.npcId = npc._id
+            e.engineId = engineId
+            e:SendTo(sender)
         end
 
         
@@ -412,24 +526,24 @@ function registerMainCharacter(engineId, locationId, sender)
         print("Main character created/fetched successfully.")
         character = JSON:Decode(response.Body)
         local e = Event()
-        e.action = "characterResponse"
+        e.action = "mainCharacterCreated"
         e.character = character
         e:SendTo(sender)
     end)
 end
 
-function stepMainCharacter(character, engineId, targetId, targetName, content)
-    
+function stepMainCharacter(character, engineId, actionType, targetId, targetName, content)
     -- Now, step the character
     local stepUrl = API_URL .. "/api/character/" .. character._id .. "/step-no-ws?engine_id=" .. engineId 
     local stepActionData = {
         character_id = character._id,  -- Use the character ID from the creation/fetch response
-        action_type = "SAY",
+        action_type = actionType,
         target = targetId,
         target_name = targetName,
         content = content
     }
     local stepJsonData = JSON:Encode(stepActionData)
+    print("Stepping character with data: " .. stepJsonData)
 
     local headers = {
         ["Content-Type"] = "application/json",
@@ -445,16 +559,20 @@ function stepMainCharacter(character, engineId, targetId, targetName, content)
         local actions = JSON:Decode(stepResponse.Body)
         -- Find the target character by id using the "target" field in the response:
         for _, action in ipairs(actions) do
+            local e = Event()
+            e.action = "NPCActionResponse"
+            e.actionType = action.action_type
+            e.content = action.content
             for _, npc in pairs(npcData) do
                 if action.character_id == npc._id then
                     -- Perform the action on the target character
-                    local e = Event()
-                    e.action = "displayDialog"
-                    e.avatarId = npc.name
-                    e.content = action.content
-                    e:SendTo(Players)
+                    e.protagonistId = npc._id
+                elseif action.target == npc._id then
+                    -- Perform the action on the target character
+                    e.targetId = npc._id
                 end
             end
+            e:SendTo(Players)
         end
     end)
 end
