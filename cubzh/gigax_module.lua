@@ -2,7 +2,7 @@ local gigax = {}
 
 local CUBZH_API_TOKEN =
 	"H4gjL-e9kvLF??2pz6oh=kJL497cBnsyCrQFdVkFadUkLnIaEamroYHb91GywMXrbGeDdmTiHxi8EqmJduCKPrDnfqWsjGuF0JJCUTrasGcBfGx=tlJCjq5q8jhVHWL?krIE74GT9AJ7qqX8nZQgsDa!Unk8GWaqWcVYT-19C!tCo11DcLvrnJPEOPlSbH7dDcXmAMfMEf1ZwZ1v1C9?2/BjPDeiAVTRlLFilwRFmKz7k4H-kCQnDH-RrBk!ZHl7"
-local API_URL = "https://gig.ax"
+local API_URL = "https://ab1e-195-154-25-43.ngrok-free.app"
 
 local TRIGGER_AREA_SIZE = Number3(60, 30, 60)
 
