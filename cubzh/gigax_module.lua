@@ -90,7 +90,7 @@ if IsServer then
 		end)
 	end
 
-	local function registerEngine(player, simulationName, config)
+	local function registerEngine(player, simulationName, simulationDescription, config)
 		local apiUrl = API_URL .. "/api/engine/company/"
 
 		local simulation = {
@@ -107,6 +107,7 @@ if IsServer then
 		-- Prepare the data structure expected by the backend
 		local engineData = {
 			name = simulationName, -- using Player.UserID to keep simulation name unique
+			description = simulationDescription,
 			NPCs = {},
 			locations = {}, -- Populate if you have dynamic location data similar to NPCs
 			radius,
@@ -124,6 +125,7 @@ if IsServer then
 				name = npc.name,
 				physical_description = npc.physicalDescription,
 				psychological_profile = npc.psychologicalProfile,
+				initial_reflections = npc.initialReflections,
 				current_location_name = npc.currentLocationName,
 				skills = cleanSkills,
 			}
@@ -238,7 +240,7 @@ if IsServer then
 			return
 		end
 		player.simulationName = player.UserID .. "_" .. config.simulationName
-		registerEngine(player, player.simulationName, config)
+		registerEngine(player, player.simulationName, config.simulationDescription, config)
 	end)
 
 	LocalEvent:Listen(LocalEvent.Name.DidReceiveEvent, function(e)
