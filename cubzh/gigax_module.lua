@@ -166,7 +166,7 @@ if IsServer then
 				simulation.NPCs[npc.name].skills = nil
 			end
 
-			registerMainCharacter(simulation, simulation.locations["Medieval Inn"]._id, function()
+			registerMainCharacter(simulation, simulation.locations["Cinema entrance (locked)"]._id, function()
 				local e = Event()
 				e.action = "linkEngine"
 				e.simulation = {
