@@ -2,7 +2,7 @@ local gigax = {}
 
 local CUBZH_API_TOKEN =
 	"H4gjL-e9kvLF??2pz6oh=kJL497cBnsyCrQFdVkFadUkLnIaEamroYHb91GywMXrbGeDdmTiHxi8EqmJduCKPrDnfqWsjGuF0JJCUTrasGcBfGx=tlJCjq5q8jhVHWL?krIE74GT9AJ7qqX8nZQgsDa!Unk8GWaqWcVYT-19C!tCo11DcLvrnJPEOPlSbH7dDcXmAMfMEf1ZwZ1v1C9?2/BjPDeiAVTRlLFilwRFmKz7k4H-kCQnDH-RrBk!ZHl7"
-local API_URL = "https://gig.ax"
+local API_URL = "https://staging.gig.ax"
 
 local TRIGGER_AREA_SIZE = Number3(60, 30, 60)
 
@@ -90,7 +90,7 @@ if IsServer then
 		end)
 	end
 
-	local function registerEngine(player, simulationName, config)
+	local function registerEngine(player, simulationName, simulationDescription, startingLocationName, config)
 		local apiUrl = API_URL .. "/api/engine/company/"
 
 		local simulation = {
@@ -107,6 +107,7 @@ if IsServer then
 		-- Prepare the data structure expected by the backend
 		local engineData = {
 			name = simulationName, -- using Player.UserID to keep simulation name unique
+			description = simulationDescription,
 			NPCs = {},
 			locations = {}, -- Populate if you have dynamic location data similar to NPCs
 			radius,
@@ -124,6 +125,7 @@ if IsServer then
 				name = npc.name,
 				physical_description = npc.physicalDescription,
 				psychological_profile = npc.psychologicalProfile,
+				initial_reflections = npc.initialReflections,
 				current_location_name = npc.currentLocationName,
 				skills = cleanSkills,
 			}
@@ -166,7 +168,7 @@ if IsServer then
 				simulation.NPCs[npc.name].skills = nil
 			end
 
-			registerMainCharacter(simulation, simulation.locations["Medieval Inn"]._id, function()
+			registerMainCharacter(simulation, simulation.locations[startingLocationName]._id, function()
 				local e = Event()
 				e.action = "linkEngine"
 				e.simulation = {
@@ -238,7 +240,7 @@ if IsServer then
 			return
 		end
 		player.simulationName = player.UserID .. "_" .. config.simulationName
-		registerEngine(player, player.simulationName, config)
+		registerEngine(player, player.simulationName, config.simulationDescription, config.startingLocationName, config)
 	end)
 
 	LocalEvent:Listen(LocalEvent.Name.DidReceiveEvent, function(e)
