@@ -90,7 +90,7 @@ if IsServer then
 		end)
 	end
 
-	local function registerEngine(player, simulationName, simulationDescription, config)
+	local function registerEngine(player, simulationName, simulationDescription, startingLocationName, config)
 		local apiUrl = API_URL .. "/api/engine/company/"
 
 		local simulation = {
@@ -168,7 +168,7 @@ if IsServer then
 				simulation.NPCs[npc.name].skills = nil
 			end
 
-			registerMainCharacter(simulation, simulation.locations["Cinema entrance (locked)"]._id, function()
+			registerMainCharacter(simulation, simulation.locations[startingLocationName]._id, function()
 				local e = Event()
 				e.action = "linkEngine"
 				e.simulation = {
@@ -240,7 +240,7 @@ if IsServer then
 			return
 		end
 		player.simulationName = player.UserID .. "_" .. config.simulationName
-		registerEngine(player, player.simulationName, config.simulationDescription, config)
+		registerEngine(player, player.simulationName, config.simulationDescription, config.startingLocationName, config)
 	end)
 
 	LocalEvent:Listen(LocalEvent.Name.DidReceiveEvent, function(e)
