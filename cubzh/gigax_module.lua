@@ -217,6 +217,14 @@ if IsServer then
 	end
 
 	local function serverDidReceiveEvent(e)
+		if e.action == "setConfig" then
+			local config = e.config
+			local player = e.Sender
+			player.simulationName = player.UserID .. "_" .. config.simulationName
+			registerEngine(player, player.simulationName, config.simulationDescription, config.startingLocationName, config)
+			return
+		end
+
 		local simulation = simulations[e.Sender.simulationName]
 		if not simulation then
 			print("no simulation available for ", e.Sender.Username, e.Sender.simulationName)
@@ -239,15 +247,6 @@ if IsServer then
 	gigax.setConfig = function(_, _config)
 		config = _config
 	end
-
-	LocalEvent:Listen(LocalEvent.Name.OnPlayerJoin, function(player)
-		if not config then
-			print("Error: Call gigax:setConfig(config) in Server.OnStart")
-			return
-		end
-		player.simulationName = player.UserID .. "_" .. config.simulationName
-		registerEngine(player, player.simulationName, config.simulationDescription, config.startingLocationName, config)
-	end)
 
 	LocalEvent:Listen(LocalEvent.Name.DidReceiveEvent, function(e)
 		serverDidReceiveEvent(e)
@@ -446,6 +445,11 @@ else
 		for _, elem in ipairs(config.NPCs) do
 			createNPC(elem.name, elem.position)
 		end
+
+		local e = Event()
+		e.action = "setConfig"
+		e.config = config
+		e:SendTo(Server)
 	end
 
 	LocalEvent:Listen(LocalEvent.Name.DidReceiveEvent, function(event)
