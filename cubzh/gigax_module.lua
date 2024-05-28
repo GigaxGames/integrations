@@ -182,7 +182,7 @@ if IsServer then
 		end)
 	end
 
-	local function stepMainCharacter(simulation, actionType, content)
+	local function stepMainCharacter(simulation, skill, content)
 		if not simulation then
 			return
 		end
@@ -191,12 +191,13 @@ if IsServer then
 		local stepUrl = API_URL .. "/api/character/" .. character._id .. "/step-no-ws?engine_id=" .. simulation.engineId
 		local stepActionData = {
 			character_id = character._id, -- Use the character ID from the creation/fetch response
-			action_type = actionType,
+			skill = skill,
 			target_name = "aduermael",
 			target = simulation.NPCs["aduermael"]._id,
 			content = content,
 		}
 		local stepJsonData = JSON:Encode(stepActionData)
+		print("stepJsonData", stepJsonData)
 
 		HTTP:Post(stepUrl, headers, stepJsonData, function(stepResponse)
 			if stepResponse.StatusCode ~= 200 then
@@ -210,7 +211,6 @@ if IsServer then
 				local e = Event()
 				e.action = "NPCActionResponse"
 				e.actionData = action
-				e.actionType = action.action_type
 				e:SendTo(Players)
 			end
 		end)
@@ -223,7 +223,13 @@ if IsServer then
 			return
 		end
 		if e.action == "stepMainCharacter" then
-			stepMainCharacter(simulation, e.actionType, e.content)
+			local skill = {
+				name = e.name,
+				description= e.description,
+				parameter_types= e.parameter_types,
+				action_format_str= e.action_format_str,
+			}
+			stepMainCharacter(simulation, skill, e.content)
 		else
 			print("Unknown Gigax message received from server.")
 		end
@@ -260,10 +266,9 @@ else
 
 	local config = {}
 
-	gigax.action = function(self, actionType, data)
+	gigax.action = function(self, data)
 		local e = Event()
 		e.action = "stepMainCharacter"
-		e.actionType = actionType
 		if data then
 			for k, v in pairs(data) do
 				e[k] = v
@@ -332,12 +337,12 @@ else
 				gigax:updateCharacterPosition(simulation, simulation.character._id, position)
 			end)
 		elseif e.action == "NPCActionResponse" then
-			local currentAction = string.lower(e.actionType)
+			local currentAction = string.lower(e.actionData.skill.name)
 			if onEndData and onEndCallbacks[prevAction] then
 				onEndCallbacks[prevAction](gigax, onEndData, currentAction)
 			end
 			local callback = actionCallbacks[currentAction]
-			prevAction = string.lower(e.actionType)
+			prevAction = string.lower(e.actionData.skill.name)
 			if not callback then
 				print("action not handled")
 				return
