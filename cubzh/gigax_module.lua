@@ -106,10 +106,10 @@ if IsServer then
 
 		-- Prepare the data structure expected by the backend
 		local engineData = {
-			name = simulationName, -- using Player.UserID to keep simulation name unique
+			name = simulationName,
 			description = simulationDescription,
 			NPCs = {},
-			locations = {}, -- Populate if you have dynamic location data similar to NPCs
+			locations = {},
 			radius,
 		}
 
@@ -164,7 +164,7 @@ if IsServer then
 				simulation.NPCs[npc.name]._id = npc._id
 				simulation.NPCs[npc.name].position = Number3(npc.position.x, npc.position.y, npc.position.z)
 
-				-- TODO: check hwy we need this
+				-- TODO: check why we need this
 				simulation.NPCs[npc.name].skills = nil
 			end
 
@@ -183,7 +183,7 @@ if IsServer then
 	end
 
 	local function stepMainCharacter(simulation, skill, content)
-		if not simulation then
+		if not simulation or not simulation.engineId then
 			return
 		end
 		local character = simulation.character
@@ -217,6 +217,14 @@ if IsServer then
 	end
 
 	local function serverDidReceiveEvent(e)
+		if e.action == "setConfig" then
+			local config = e.config
+			local player = e.Sender
+			player.simulationName = player.UserID .. "_" .. config.simulationName
+			registerEngine(player, player.simulationName, config.simulationDescription, config.startingLocationName, config)
+			return
+		end
+
 		local simulation = simulations[e.Sender.simulationName]
 		if not simulation then
 			print("no simulation available for ", e.Sender.Username, e.Sender.simulationName)
@@ -239,15 +247,6 @@ if IsServer then
 	gigax.setConfig = function(_, _config)
 		config = _config
 	end
-
-	LocalEvent:Listen(LocalEvent.Name.OnPlayerJoin, function(player)
-		if not config then
-			print("Error: Call gigax:setConfig(config) in Server.OnStart")
-			return
-		end
-		player.simulationName = player.UserID .. "_" .. config.simulationName
-		registerEngine(player, player.simulationName, config.simulationDescription, config.startingLocationName, config)
-	end)
 
 	LocalEvent:Listen(LocalEvent.Name.DidReceiveEvent, function(e)
 		serverDidReceiveEvent(e)
@@ -351,12 +350,13 @@ else
 		end
 	end
 
-	local function createNPC(name, currentPosition)
+	local function createNPC(name, currentPosition, rotation)
 		-- Create the NPC's Object and Avatar
 		local NPC = {}
 		NPC.object = Object()
 		World:AddChild(NPC.object)
 		NPC.object.Position = currentPosition or Number3(0, 0, 0)
+		NPC.object.Rotation = rotation or Rotation(0, 0, 0)
 		NPC.object.Scale = 0.5
 		NPC.object.Physics = PhysicsMode.Trigger
 		NPC.object.CollisionBox = Box({
@@ -432,7 +432,10 @@ else
 				return
 			end
 			local position = Map:WorldToBlock(NPC.object.Position)
+			local prevPosition = NPC.object.prevSyncPosition
+			if prevPosition == position then return end
 			gigax:updateCharacterPosition(simulation, NPC._id, position)
+			NPC.object.prevSyncPosition = position
 		end)
 		return NPC
 	end
@@ -442,10 +445,18 @@ else
 
 		for _, elem in ipairs(config.skills) do
 			skillOnAction(string.lower(elem.name), elem.callback, elem.onEndCallback)
+			-- needed to send it to the server
+			elem.callback = nil
+			elem.onEndCallback = nil
 		end
 		for _, elem in ipairs(config.NPCs) do
-			createNPC(elem.name, elem.position)
+			createNPC(elem.name, elem.position, elem.rotation)
 		end
+
+		local e = Event()
+		e.action = "setConfig"
+		e.config = config
+		e:SendTo(Server)
 	end
 
 	LocalEvent:Listen(LocalEvent.Name.DidReceiveEvent, function(event)
