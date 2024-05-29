@@ -197,7 +197,6 @@ if IsServer then
 			content = content,
 		}
 		local stepJsonData = JSON:Encode(stepActionData)
-		print("stepJsonData", stepJsonData)
 
 		HTTP:Post(stepUrl, headers, stepJsonData, function(stepResponse)
 			if stepResponse.StatusCode ~= 200 then
