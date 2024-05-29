@@ -1,3 +1,5 @@
+
+
 local gigax = {}
 
 local CUBZH_API_TOKEN =
@@ -187,13 +189,23 @@ if IsServer then
 			return
 		end
 		local character = simulation.character
+
+		-- get random NPC (not used but mandatory)
+		local npcName
+		local npcId
+		for k,v in pairs(simulation.NPCs) do
+			npcName = k
+			npcId = v._id
+			break
+		end
+
 		-- Now, step the character
 		local stepUrl = API_URL .. "/api/character/" .. character._id .. "/step-no-ws?engine_id=" .. simulation.engineId
 		local stepActionData = {
 			character_id = character._id, -- Use the character ID from the creation/fetch response
 			skill = skill,
-			target_name = "aduermael",
-			target = simulation.NPCs["aduermael"]._id,
+			target_name = npcName,
+			target = npcId,
 			content = content,
 		}
 		local stepJsonData = JSON:Encode(stepActionData)
