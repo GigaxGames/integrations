@@ -182,18 +182,19 @@ if IsServer then
 		end)
 	end
 
-	local function stepMainCharacter(simulation, skill, content)
+	local function stepMainCharacter(simulation, skill, content, npc)
 		if not simulation or not simulation.engineId then
 			return
 		end
 		local character = simulation.character
+
 		-- Now, step the character
 		local stepUrl = API_URL .. "/api/character/" .. character._id .. "/step-no-ws?engine_id=" .. simulation.engineId
 		local stepActionData = {
 			character_id = character._id, -- Use the character ID from the creation/fetch response
 			skill = skill,
-			target_name = "aduermael",
-			target = simulation.NPCs["aduermael"]._id,
+			target_name = npc.name,
+			target = npc._id,
 			content = content,
 		}
 		local stepJsonData = JSON:Encode(stepActionData)
@@ -236,7 +237,7 @@ if IsServer then
 				parameter_types= e.parameter_types,
 				action_format_str= e.action_format_str,
 			}
-			stepMainCharacter(simulation, skill, e.content)
+			stepMainCharacter(simulation, skill, e.content, e.npc)
 		else
 			print("Unknown Gigax message received from server.")
 		end
@@ -264,6 +265,22 @@ else
 
 	local config = {}
 
+	local findTargetNpc = function(player)
+		if not simulation then return end
+
+		local closerDist = 1000
+		local closerNpc
+		for k,npc in pairs(simulation.NPCs) do
+			local dist = (npc.position - player.Position).Length
+			if closerDist > dist then
+				closerDist = dist
+				closerNpc = npc
+			end
+		end
+		if closerDist > 30 then return end -- max length is 30
+		return closerNpc
+	end
+
 	gigax.action = function(self, data)
 		local e = Event()
 		e.action = "stepMainCharacter"
@@ -272,6 +289,8 @@ else
 				e[k] = v
 			end
 		end
+		e.npc = findTargetNpc(Player)
+		if not e.npc then return end
 		e:SendTo(Server)
 	end
 
@@ -321,9 +340,13 @@ else
 					npc._id = simulation.NPCs[name]._id
 
 					npcDataClient[name] = npc
+					npcDataClient[name].name = name
 					npcDataClientById[npc._id] = npc
 					npcDataClient[name]._id = npc._id
 					npcDataClient[name].object.Position = simulation.NPCs[name].position
+
+					npcDataClient[name].avatar.npc = npcDataClient[name]
+					npcDataClient[name].object.avatarContainer.npc = npcDataClient[name]
 				else
 					print("Can't link NPC", name)
 				end
