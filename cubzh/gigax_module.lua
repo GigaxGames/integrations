@@ -108,7 +108,7 @@ if IsClient then
 		end)
 	end
 
-	gigaxHttpClient.updateCharacterPosition = function(_, engineId, characterId, locationId, position)
+	gigaxHttpClient.updateCharacterPosition = function(_, engineId, characterId, locationId, position, callback)
 		local body = JSON:Encode({
 			current_location_id = locationId,
 			position = { x = position.X, y = position.Y, z = position.Z },
@@ -119,7 +119,9 @@ if IsClient then
 				print("Error updating character location: " .. response.StatusCode)
 				return
 			end
-			callback(response.Body)
+			if callback then
+				callback(response.Body)
+			end
 		end)
 	end
 
