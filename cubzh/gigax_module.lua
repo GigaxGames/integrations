@@ -204,7 +204,6 @@ if IsClient then
 				for name, npc in pairs(waitingLinkNPCs) do
 					npc._id = simulation.NPCs[name]._id
 					npc.name = name
-					npc.object.Position = simulation.NPCs[name].position
 					npcDataClientById[npc._id] = npc
 				end
 				Timer(1, true, function()
