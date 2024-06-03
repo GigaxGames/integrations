@@ -91,7 +91,7 @@ if IsClient then
 		if not engineId then
 			return
 		end
-		local stepUrl = API_URL .. "/api/character/"..characterId.."/step-no-ws?engine_id="..engineId
+		local stepUrl = API_URL .. "/api/character/" .. characterId .. "/step-no-ws?engine_id=" .. engineId
 		local body = JSON:Encode({
 			character_id = characterId,
 			skill = skill,
@@ -113,7 +113,7 @@ if IsClient then
 			current_location_id = locationId,
 			position = { x = position.X, y = position.Y, z = position.Z },
 		})
-		local apiUrl = API_URL.."/api/character/"..characterId.."?engine_id="..engineId
+		local apiUrl = API_URL .. "/api/character/" .. characterId .. "?engine_id=" .. engineId
 		HTTP:Post(apiUrl, headers, body, function(response)
 			if response.StatusCode ~= 200 then
 				print("Error updating character location: " .. response.StatusCode)
@@ -134,7 +134,9 @@ if IsClient then
 		end
 		local callback = skillCallbacks[currentAction].callback
 		prevAction = string.lower(actionData.skill.name)
-		if not callback then return end
+		if not callback then
+			return
+		end
 		onEndData = callback(gigax, actionData, simulation.config)
 	end
 
@@ -148,7 +150,7 @@ if IsClient then
 
 		-- Prepare the data structure expected by the backend
 		local engineData = {
-			name = Player.UserID..":"..config.simulationName,
+			name = Player.UserID .. ":" .. config.simulationName,
 			description = config.simulationDescription,
 			NPCs = {},
 			locations = {},
@@ -199,49 +201,67 @@ if IsClient then
 				simulation.NPCs[npc.name].position = Number3(npc.position.x, npc.position.y, npc.position.z)
 			end
 
-			gigaxHttpClient:registerMainCharacter(simulation.engineId, simulation.locations[config.startingLocationName]._id, function(body)
-				simulation.character = JSON:Decode(body)
-				for name, npc in pairs(waitingLinkNPCs) do
-					npc._id = simulation.NPCs[name]._id
-					npc.name = name
-					npcDataClientById[npc._id] = npc
+			gigaxHttpClient:registerMainCharacter(
+				simulation.engineId,
+				simulation.locations[config.startingLocationName]._id,
+				function(body)
+					simulation.character = JSON:Decode(body)
+					for name, npc in pairs(waitingLinkNPCs) do
+						npc._id = simulation.NPCs[name]._id
+						npc.name = name
+						npcDataClientById[npc._id] = npc
+					end
+					Timer(1, true, function()
+						local position = Map:WorldToBlock(Player.Position)
+						gigax:updateCharacterPosition(simulation, simulation.character._id, position)
+					end)
 				end
-				Timer(1, true, function()
-					local position = Map:WorldToBlock(Player.Position)
-					gigax:updateCharacterPosition(simulation, simulation.character._id, position)
-				end)
-			end)
+			)
 		end)
 	end
 
 	findTargetNpc = function(player)
-		if not simulation then return end
+		if not simulation then
+			return
+		end
 
 		local closerDist = 1000
 		local closerNpc
-		for _,npc in pairs(simulation.NPCs) do
+		for _, npc in pairs(simulation.NPCs) do
 			local dist = (npc.position - player.Position).Length
 			if closerDist > dist then
 				closerDist = dist
 				closerNpc = npc
 			end
 		end
-		if closerDist > 50 then return end -- max distance is 50
+		if closerDist > 50 then
+			return
+		end -- max distance is 50
 		return closerNpc
 	end
 
 	gigax.action = function(_, data)
 		local npc = findTargetNpc(Player)
-		if not npc then return end
+		if not npc then
+			return
+		end
 
 		local content = data.content
 		data.content = nil
-		gigaxHttpClient:stepMainCharacter(simulation.engineId, simulation.character._id, data, content, npc.name, npc._id, function(body)
-			local actions = JSON:Decode(body)
-			for _, action in ipairs(actions) do
-				npcResponse(action)
+		gigaxHttpClient:stepMainCharacter(
+			simulation.engineId,
+			simulation.character._id,
+			data,
+			content,
+			npc.name,
+			npc._id,
+			function(body)
+				local actions = JSON:Decode(body)
+				for _, action in ipairs(actions) do
+					npcResponse(action)
+				end
 			end
-		end)
+		)
 	end
 
 	gigax.getNpc = function(_, id)
@@ -251,21 +271,27 @@ if IsClient then
 	local skillOnAction = function(actionType, callback, onEndCallback)
 		skillCallbacks[actionType] = {
 			callback = callback,
-			onEndCallback = onEndCallback
+			onEndCallback = onEndCallback,
 		}
 	end
 
 	local prevSyncPosition
 	gigax.updateCharacterPosition = function(_, simulation, characterId, position)
-		if not simulation then return end
-		if position == prevSyncPosition then return end
+		if not simulation then
+			return
+		end
+		if position == prevSyncPosition then
+			return
+		end
 		prevSyncPosition = position
 		local closest = _helpers:findClosestLocation(position, simulation.locations)
 		if not closest then
 			print("can't update character position: no closest location found, id:", characterId, position)
 			return
 		end
-		if not characterId then return end
+		if not characterId then
+			return
+		end
 		gigaxHttpClient:updateCharacterPosition(simulation.engineId, characterId, closest._id, position)
 	end
 
@@ -275,7 +301,6 @@ if IsClient then
 		NPC.object = Object()
 		World:AddChild(NPC.object)
 		NPC.object.Position = currentPosition or Number3(0, 0, 0)
-		NPC.object.Rotation = rotation or Rotation(0, 0, 0)
 		NPC.object.Scale = 0.5
 		NPC.object.Physics = PhysicsMode.Trigger
 		NPC.object.CollisionBox = Box({
@@ -301,16 +326,14 @@ if IsClient then
 		end
 
 		local container = Object()
-		container.Rotation = NPC.object.Rotation
-		container.initialRotation = NPC.object.Rotation:Copy()
-		container.initialForward = NPC.object.Forward:Copy()
+		container.Rotation:Set(rotation or Number3.Zero)
+		container.initialForward = container.Forward:Copy()
 		container:SetParent(NPC.object)
 		container.Physics = PhysicsMode.Trigger
 		NPC.object.avatarContainer = container
 
 		NPC.avatar = require("avatar"):get(name)
 		NPC.avatar:SetParent(NPC.object.avatarContainer)
-		NPC.avatar.Rotation.Y = math.pi * 2
 
 		NPC.name = name
 
@@ -347,7 +370,9 @@ if IsClient then
 			end
 			local position = Map:WorldToBlock(NPC.object.Position)
 			local prevPosition = NPC.object.prevSyncPosition
-			if prevPosition == position then return end
+			if prevPosition == position then
+				return
+			end
 			gigax:updateCharacterPosition(simulation, NPC._id, position)
 			NPC.object.prevSyncPosition = position
 		end)
