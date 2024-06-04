@@ -221,7 +221,7 @@ if IsClient then
 	end
 
 	findTargetNpc = function(player)
-		if not simulation then
+		if not simulation or type(simulation.NPCs) ~= "table" then
 			return
 		end
 
@@ -295,7 +295,7 @@ if IsClient then
 		gigaxHttpClient:updateCharacterPosition(simulation.engineId, characterId, closest._id, position)
 	end
 
-	local function createNPC(name, currentPosition, rotation)
+	local function createNPC(name, gameName, currentPosition, rotation)
 		-- Create the NPC's Object and Avatar
 		local NPC = {}
 		NPC.object = Object()
@@ -312,6 +312,16 @@ if IsClient then
 			math.max(TRIGGER_AREA_SIZE.Height, NPC.object.CollisionBox.Max.Y),
 			TRIGGER_AREA_SIZE.Depth * 0.5,
 		})
+
+		local text = Text()
+		text.Text = " " .. gameName .. " "
+		text:SetParent(NPC.object)
+		text.Type = TextType.Screen
+		text.IsUnlit = true
+		text.LocalPosition.Y = 36
+		text.FontSize = 22
+		text.Font = Font.Noto
+
 		NPC.object.OnCollisionBegin = function(self, other)
 			if other ~= Player then
 				return
@@ -336,6 +346,7 @@ if IsClient then
 		NPC.avatar:SetParent(NPC.object.avatarContainer)
 
 		NPC.name = name
+		NPC.gameName = gameName
 
 		NPC.object.onIdle = function()
 			local animations = NPC.avatar.Animations
@@ -386,7 +397,7 @@ if IsClient then
 			elem.onEndCallback = nil
 		end
 		for _, elem in ipairs(config.NPCs) do
-			createNPC(elem.name, elem.position, elem.rotation)
+			createNPC(elem.name, elem.gameName, elem.position, elem.rotation)
 		end
 		registerEngine(config)
 	end
