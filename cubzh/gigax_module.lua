@@ -88,7 +88,7 @@ if IsClient then
 	end
 
 	gigaxHttpClient.stepMainCharacter = function(_, engineId, characterId, skill, content, npcName, npcId, callback)
-		if not engineId then
+		if not engineId or not characterId then
 			return
 		end
 		local stepUrl = API_URL .. "/api/character/" .. characterId .. "/step-no-ws?engine_id=" .. engineId
